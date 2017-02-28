@@ -138,42 +138,40 @@ void i2c_read(uint8_t address, uint8_t registry, uint8_t * result, uint8_t lengt
 	while (!(I2C1->SR1 & I2C_SR1_SB)); 		// Wait for EV5
 	I2C1->DR = (address << 1 ) | 1;			// Write device address (R)
 
-    while (!(I2C1->SR1 & I2C_SR1_ADDR));	// Wait for EV6
-    while(length)
-    {
-        if(length==1)
-        {
-            (void)I2C1->SR2;                        // Read SR2 - clears ADDR flag
-            
-            *result = (uint8_t)I2C1->DR;            // Read value
+	if(length==2)
+	{
+	    while (!(I2C1->SR1 & I2C_SR1_ADDR));	// Wait for EV6
 
-            I2C1->CR1 |= I2C_CR1_STOP;				// Generate STOP condition
+	    I2C1->CR1 &= ~I2C_CR1_ACK;              // No ACK
+	    I2C1->CR1 |= I2C_CR1_POS;               // POS
+	    (void)I2C1->SR2;
 
-            break;
-        }
-        else if (length == 2)
-        {
-            I2C1->CR1 &= ~I2C_CR1_ACK;              // No ACK
-            I2C1->CR1 |= I2C_CR1_POS;               // POS 
-            (void)I2C1->SR2;
+	    while (!(I2C1->SR1 & I2C_SR1_BTF));	    // Wait for BTF
+	    I2C1->CR1 |= I2C_CR1_STOP;			    // Generate STOP condition
 
-            while (!(I2C1->SR1 & I2C_SR1_BTF));	    // Wait for BTF
-            I2C1->CR1 |= I2C_CR1_STOP;			    // Generate STOP condition
+	    *result++ = (uint8_t)I2C1->DR;          // Read value
+	    *result++ = (uint8_t)I2C1->DR;          // Read value
+	}
+	if(length>2)
+	{
+	    while (!(I2C1->SR1 & I2C_SR1_ADDR));	// Wait for EV6
+	    (void)I2C1->SR2;
 
-            *result = (uint8_t)I2C1->DR;            // Read value
-            *result++ = (uint8_t)I2C1->DR;          // Read value
+	    length--;
+	    while(length--)
+	    {
+		    while (!(I2C1->SR1 & I2C_SR1_BTF));	    // Wait for BTF
+		    *result++ = (uint8_t)I2C1->DR;          // Read value
 
-            break;
-        }
-        else if (length > 2)
-        {
-            (void)I2C1->SR2;                        // Read SR2
+		    if(length==1)
+		    {
+			    I2C1->CR1 &= ~I2C_CR1_ACK;              // No ACK
+			    I2C1->CR1 |= I2C_CR1_STOP;			    // Generate STOP condition
+		    }
+	    }
 
-            *result++ = (uint8_t)I2C1->DR;          // Read value
+	    *result++ = (uint8_t)I2C1->DR;          // Read value
+	}
 
-        }
-
-        length--;
-    }
 
 }
